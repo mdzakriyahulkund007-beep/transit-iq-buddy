@@ -1,30 +1,28 @@
 import { useState, useEffect, useCallback } from "react";
-import { BusData, PreferenceMode, getInitialBuses, simulateUpdate, rankBuses, generateInsights } from "@/lib/busEngine";
+import { BusData, PreferenceMode, getBusesForRoute, simulateUpdate, rankBuses, generateInsights } from "@/lib/busEngine";
 
 export function useBusSimulation() {
-  const [buses, setBuses] = useState<BusData[]>(getInitialBuses);
+  const [buses, setBuses] = useState<BusData[]>([]);
   const [mode, setMode] = useState<PreferenceMode>("balanced");
-  const [tick, setTick] = useState(0);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
+    if (buses.length === 0) return;
     const interval = setInterval(() => {
       setBuses((prev) => simulateUpdate(prev));
-      setTick((t) => t + 1);
     }, 3000);
     return () => clearInterval(interval);
+  }, [buses.length]);
+
+  const searchRoute = useCallback((source: string, destination: string) => {
+    const found = getBusesForRoute(source, destination);
+    setBuses(found);
+    setHasSearched(true);
   }, []);
 
-  const ranked = rankBuses(buses, mode);
-  const bestBus = ranked[0];
-  const insights = generateInsights(buses, mode);
+  const ranked = buses.length > 0 ? rankBuses(buses, mode) : [];
+  const bestBus = ranked[0] ?? null;
+  const insights = buses.length > 0 ? generateInsights(buses, mode) : [];
 
-  const cycleMode = useCallback(() => {
-    setMode((prev) => {
-      if (prev === "balanced") return "fast";
-      if (prev === "fast") return "comfort";
-      return "balanced";
-    });
-  }, []);
-
-  return { buses, ranked, bestBus, insights, mode, setMode, cycleMode, tick };
+  return { buses, ranked, bestBus, insights, mode, setMode, hasSearched, searchRoute };
 }
